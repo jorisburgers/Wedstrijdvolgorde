@@ -1,8 +1,12 @@
 module Competition.Pages where
 
-import Prelude
+import Competition.Competition (Competition)
 
 data Page 
   = Overview
-  | List Int
-  | Edit Int
+  | List Competition
+  | Edit Competition
+
+data PageAction
+  = NavigatePage Page
+  | CreatedNewCompetition Competition

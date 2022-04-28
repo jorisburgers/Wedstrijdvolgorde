@@ -11,15 +11,17 @@ module Competition.Competition
   , modifyCompetition
   , rotateFirst
   , apparatusName
+  , reorder
+  , removeCompetition
   )
   where
 
-import Competition.Participant (Participant (..), Lane (..), genId)
+import Competition.Participant (Participant, Lane (..), genId)
 import Control.Monad.Except (throwError)
-import Data.Array (cons, length, head, find, uncons, snoc)
+import Data.Array (cons, length, head, find, uncons, snoc, (:), filter)
 import Data.Either (Either (..))
 import Data.Eq (class Eq, (==))
-import Data.Functor (map)
+import Data.Tuple (Tuple (..))
 import Data.List.Types (NonEmptyList (..))
 import Data.Maybe (Maybe (..), fromMaybe')
 import Data.NonEmpty (singleton)
@@ -28,7 +30,7 @@ import Effect (Effect)
 import Effect.Console (log)
 import Foreign (ForeignError (..))
 import Partial.Unsafe (unsafeCrashWith)
-import Prelude (($), (<$>), (>>=), bind, pure, discard, (<>), class Show, show )
+import Prelude (($), (<$>), (>>=), bind, pure, discard, (<>), class Show, show, (>), not, (/=) )
 import Simple.JSON as JSON
 import Web.HTML (window)
 import Web.HTML.Window (localStorage)
@@ -43,7 +45,7 @@ instance writeForeignCompetitionId :: JSON.WriteForeign CompetitionId where
 instance readForeignCompetitionId :: JSON.ReadForeign CompetitionId where
   readImpl x = JSON.readImpl x >>= \str -> 
     case fromString str of
-      Just x -> pure (CompetitionId x)
+      Just cid -> pure (CompetitionId cid)
       Nothing -> throwError (NonEmptyList $ singleton $ ForeignError ("Invalid int: " <> str))
 
 derive instance eqCompetitionId :: Eq CompetitionId
@@ -155,6 +157,9 @@ addNewCompetition = do
 getCompetitions :: Effect (Array Competition)
 getCompetitions = modifyCompetitions (\x -> pure x)
 
+removeCompetition :: Competition -> Effect (Array Competition)
+removeCompetition competition = modifyCompetitions (\xs -> pure $ filter (\x -> x.competitionId /= competition.competitionId) xs)
+
 modifyCompetitions :: (Array Competition -> Effect (Array Competition)) -> Effect (Array Competition)
 modifyCompetitions f = do
   w <- window
@@ -182,13 +187,50 @@ modifyCompetition cId f = getCompetition cId <$> modifyCompetitions (traverse f'
     f' :: Competition -> Effect Competition
     f' c = if c.competitionId == cId then f c else pure c
         
-rotate :: Array Apparatus -> Array Apparatus
+rotate :: forall a. Array a -> Array a
 rotate arr = case uncons arr of
   Nothing -> [] 
   Just x -> snoc (x.tail) (x.head)
 
-rotateUntil :: (Array Apparatus -> Boolean) -> Array Apparatus -> Array Apparatus
+rotateUntil :: forall a. (Array a -> Boolean) -> Array a -> Array a
 rotateUntil f arr = if f arr then arr else rotateUntil f (rotate arr)
 
 rotateFirst :: Apparatus -> Array Apparatus -> Array Apparatus
 rotateFirst apparatus = rotateUntil (\arr -> head arr == Just apparatus)
+
+reorder :: Apparatus -> Array Apparatus -> Array Participant -> Array Participant
+reorder apparatus apparatusOrder participants = reorderSplit apparatus apparatusOrder (splitByLane (filter (\p -> p.participantPresent) participants)) <> filter (\p -> not p.participantPresent) participants 
+
+splitByLane :: Array Participant -> Tuple (Array Participant) (Array Participant)
+splitByLane = go (Tuple [] [])
+  where
+    go (Tuple l r) lst = case uncons lst of
+      Nothing -> Tuple l r
+      Just uc -> case uc.head.participantLane of
+        Lane1 -> go (Tuple (snoc l uc.head) r) uc.tail
+        Lane2 -> go (Tuple l (snoc r uc.head)) uc.tail
+
+
+zipParticipants :: Tuple (Array Participant) (Array Participant) -> Array Participant
+zipParticipants (Tuple l1 l2) = go startWith (Tuple l1 l2)
+  where
+    startWith = if length l2 > length l1 then Lane2 else Lane1
+    go s (Tuple l r) = case Tuple (uncons l) (uncons r) of
+      Tuple Nothing Nothing -> []
+      Tuple (Just _) Nothing -> l
+      Tuple Nothing (Just _) -> r 
+      Tuple (Just l') (Just r') -> case s of
+        Lane1 -> l'.head : go Lane2 (Tuple l'.tail r)
+        Lane2 -> r'.head : go Lane1 (Tuple l r'.tail)
+
+
+
+reorderSplit :: Apparatus -> Array Apparatus -> Tuple (Array Participant) (Array Participant) -> Array Participant
+reorderSplit apparatus apparatusOrder participants 
+  | head apparatusOrder == Just apparatus = zipParticipants participants
+  | true = 
+      let
+        Tuple l r = participants
+        l' = rotate l
+        r' = rotate r
+      in reorderSplit apparatus (rotate apparatusOrder) (Tuple l' r')

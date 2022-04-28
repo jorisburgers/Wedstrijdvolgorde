@@ -1,3 +1,7 @@
 *{
-  font-size: 1.1em;
+  font-size: 0.95em;
+}
+
+.absent td{
+    text-decoration: line-through;
 }

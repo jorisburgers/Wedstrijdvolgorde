@@ -16,6 +16,7 @@
   , "psci-support"
   , "simple-json"
   , "transformers"
+  , "tuples"
   , "web-html"
   , "web-storage"
   ]

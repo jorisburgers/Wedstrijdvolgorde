@@ -4,7 +4,6 @@ import Prelude
 
 import Data.Maybe (Maybe (..))
 import Effect.Class (class MonadEffect)
-import Effect.Console (log)
 import Data.Array (length)
 import Competition.Pages (Page (..), PageAction (..))
 import Competition.Competition (Competition, CompetitionType (..), addNewCompetition, getCompetitions)
@@ -55,14 +54,15 @@ render (Overview state) = HH.div
 
     newCompetitionButton = 
       HH.button
-        [ HE.onClick \_ -> NewCompetitionClick ]
+        [ HE.onClick \_ -> NewCompetitionClick 
+        , HP.class_ (H.ClassName "btn btn-primary")
+        ]
         [ HH.text "Toevoegen" ]
 
     listCompetitions = HH.table
       [HP.class_ (H.ClassName "table")]
       [ HH.thead_
-          [ HH.th [HP.scope HP.ScopeCol] [HH.text "#"]
-          , HH.th [HP.scope HP.ScopeCol] [HH.text "Naam"]
+          [ HH.th [HP.scope HP.ScopeCol] [HH.text "Naam"]
           , HH.th [HP.scope HP.ScopeCol] [HH.text "Aantal deelnemers"]
           , HH.th [HP.scope HP.ScopeCol] [HH.text "Man/vrouw"]
           , HH.th [] []
@@ -76,15 +76,17 @@ render (Overview state) = HH.div
     competitionRow competition =
       HH.tr 
         [ ]
-        [ HH.td [] [HH.text (show competition.competitionId)]
-        , HH.td [] [HH.text (expandName competition.competitionName)]
+        [ HH.td [] [HH.text (expandName competition.competitionName)]
         , HH.td [] [HH.text (show (length (competition.competitionParticipants)))]
         , HH.td [] [HH.text $ 
             case competition.competitionType of 
               Male -> "m"
               Female -> "v"
             ]
-        , HH.td [HE.onClick \_ -> EditCompetition competition] [HH.text "Aanpassen"]
+        , HH.td 
+          [ HE.onClick \_ -> ShowCompetition competition] [HH.text "Weergeven"]
+        , HH.td 
+          [ HE.onClick \_ -> EditCompetition competition] [HH.text "Aanpassen"]
         ]
 
 handleAction :: forall m. MonadEffect m => Action -> H.HalogenM Overview Action () PageAction m Unit
@@ -96,7 +98,6 @@ handleAction = case _ of
     competitions <- H.liftEffect getCompetitions
     H.modify_ (\_ -> Overview competitions)
   ShowCompetition competition -> do
-    H.liftEffect $ log ("show" <> show competition)
+    H.raise (NavigatePage (ShowPage competition))
   EditCompetition competition -> do
-    H.liftEffect $ log ("edit" <> show competition)
     H.raise (NavigatePage (EditPage competition))

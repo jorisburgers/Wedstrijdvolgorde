@@ -6,8 +6,8 @@ import Effect (Effect)
 import Data.Maybe (Maybe (..))
 import Data.Array ((:), head, filter, snoc)
 import Effect.Class (class MonadEffect)
-import Competition.Competition (Competition, CompetitionType (..), modifyCompetition, maleApparatuses, femaleApparatuses, rotateFirst, apparatusName)
-import Competition.Participant (Lane (..), ParticipantId (..), Participant (..), newParticipant, genId, updateParticipant, removeParticipant)
+import Competition.Competition (Competition, CompetitionType (..), modifyCompetition, maleApparatuses, femaleApparatuses, rotateFirst, apparatusName, removeCompetition)
+import Competition.Participant (Lane (..), ParticipantId (..), newParticipant, genId, updateParticipant, removeParticipant)
 import Competition.Pages (Page (..), PageAction (..))
 import Halogen as H
 import Halogen.HTML as HH
@@ -20,6 +20,7 @@ type Slot action = forall q. H.Slot q action Unit
 data Action 
   = ToOverview
   | ChangeInput (Competition -> Effect Competition)
+  | RemoveCompetition Competition
 
 type State = 
   { competition :: Competition
@@ -46,7 +47,9 @@ render state = HH.div [cls "container"] (header : content)
       [ HH.div [cls "col-6"] [HH.h1_ [HH.text "Aanpassen"]]
       , HH.div [cls "col-6"] [
         HH.button
-          [ HE.onClick \_ -> ToOverview ]
+          [ HE.onClick \_ -> ToOverview 
+          , cls "btn btn-primary"
+          ]
           [ HH.text "Overzicht" ]
         ]
       ]
@@ -55,9 +58,10 @@ render state = HH.div [cls "container"] (header : content)
     content = 
       [ rowDiv nameEdit
       , rowDiv typeEdit
-      , rowDiv [ HH.div [cls "col-md-12"] [HH.text "Starttoestel"]]
+      , rowDiv [ HH.div [cls "col-md-12"] [HH.h2_ [HH.text "Starttoestel"]]]
       , rowDiv apparatusEdit
-      , rowDiv [ HH.div [cls "col-md-12"] [HH.text "Deelnemers"]]
+      , rowDiv removeCompetition
+      , rowDiv [ HH.div [cls "col-md-12"] [HH.h2_ [HH.text "Deelnemers"]]]
       , rowDiv participantsEdit
       ]
 
@@ -118,6 +122,17 @@ render state = HH.div [cls "container"] (header : content)
             Female -> femaleApparatuses
         )
       ]
+    
+    removeCompetition =  
+      [ HH.div
+        [cls "col-md-12"]
+        [ HH.button [
+            HE.onClick \_ -> RemoveCompetition state.competition 
+            , cls "btn btn-danger"
+          ]
+          [HH.text "Verwijder wedstrijd"]
+        ]
+      ]
 
     participantsEdit = 
       [ HH.div [cls "col-md-6"] [HH.text "Baan 1", laneEdit Lane1]
@@ -146,14 +161,18 @@ render state = HH.div [cls "container"] (header : content)
           , HE.onValueInput $ \v -> (ChangeInput (\c -> pure $ c { competitionParticipants = updateParticipant (participant { participantClub = v}) (c.competitionParticipants)}))
           ]
         , HH.button 
-          [HE.onClick \_ -> ChangeInput (\c -> pure $ c { competitionParticipants = removeParticipant participant.participantId c.competitionParticipants})] 
+          [ HE.onClick \_ -> ChangeInput (\c -> pure $ c { competitionParticipants = removeParticipant participant.participantId c.competitionParticipants})
+          , cls "btn btn-danger btn-sm"
+          ] 
           [HH.text "Verwijderen"]
         ]
     ]
 
     newParticipantButton lane = HH.li [] [        
       HH.button
-        [ HE.onClick \_ -> ChangeInput (\c -> genId >>= \x -> pure $ c { competitionParticipants = snoc c.competitionParticipants (newParticipant (ParticipantId x) lane)}) ]
+        [ HE.onClick \_ -> ChangeInput (\c -> genId >>= \x -> pure $ c { competitionParticipants = snoc c.competitionParticipants (newParticipant (ParticipantId x) lane)}) 
+        , cls "btn btn-success"
+        ]
         [ HH.text "Nieuwe deelnemer" ]
       ]
 
@@ -166,3 +185,6 @@ handleAction = case _ of
     competition <- H.get
     newCompetition <- H.liftEffect (modifyCompetition competition.competition.competitionId competitionF)
     H.put { competition: newCompetition }
+  RemoveCompetition competition -> do
+    _ <- H.liftEffect (removeCompetition competition)
+    H.raise (NavigatePage OverviewPage)

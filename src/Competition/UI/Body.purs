@@ -13,6 +13,7 @@ import Effect.Console (log)
 import Effect.Class (class MonadEffect)
 import Competition.UI.Overview as Overview
 import Competition.UI.Edit as Edit
+import Competition.UI.Show as Show
 import Competition.Pages (Page (..), PageAction (..))
 import Halogen as H
 import Halogen.HTML as HH
@@ -22,6 +23,7 @@ type State = { page :: Page }
 type ChildSlots =
   ( overview :: Overview.Slot PageAction
   , edit :: Edit.Slot PageAction
+  , show :: Show.Slot PageAction
   )
 
 component :: forall q i o m. MonadEffect m => H.Component q i o m
@@ -42,7 +44,7 @@ render state = do
   case state.page of
     OverviewPage -> HH.slot Overview.slot unit Overview.component unit (\x -> x)
     EditPage competition -> HH.slot Edit.slot unit (Edit.component competition) unit (\x -> x)
-    _ -> HH.text "Another page"
+    ShowPage competition -> HH.slot Show.slot unit (Show.component competition) unit (\x -> x)
 
 handleAction :: forall o m. MonadEffect m => PageAction -> H.HalogenM State PageAction ChildSlots o m Unit
 handleAction = case _ of

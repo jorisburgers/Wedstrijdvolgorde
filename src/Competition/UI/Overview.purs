@@ -25,6 +25,7 @@ data Action
   | LoadState
   | ShowCompetition Competition
   | EditCompetition Competition
+  | ImportExportClick
 
 component :: forall q i m. MonadEffect m => H.Component q i PageAction m
 component = H.mkComponent 
@@ -49,7 +50,8 @@ render (Overview state) = HH.div
     header = HH.div 
       [HP.class_ (H.ClassName "row")]
       [ HH.div [HP.class_ (H.ClassName "col-6")] [HH.h1_ [HH.text "Wedstrijden"]]
-      , HH.div [HP.class_ (H.ClassName "col-6")] [newCompetitionButton]
+      , HH.div [HP.class_ (H.ClassName "col-3")] [newCompetitionButton]
+      , HH.div [HP.class_ (H.ClassName "col-3")] [importExportButton]
       ]
 
     newCompetitionButton = 
@@ -58,6 +60,13 @@ render (Overview state) = HH.div
         , HP.class_ (H.ClassName "btn btn-primary")
         ]
         [ HH.text "Toevoegen" ]
+
+    importExportButton = 
+      HH.button
+        [ HE.onClick \_ -> ImportExportClick 
+        , HP.class_ (H.ClassName "btn btn-primary")
+        ]
+        [ HH.text "Import / Export" ]
 
     listCompetitions = HH.table
       [HP.class_ (H.ClassName "table")]
@@ -94,6 +103,8 @@ handleAction = case _ of
   NewCompetitionClick -> do
     competition <- H.liftEffect addNewCompetition
     H.raise (CreatedNewCompetition competition)
+  ImportExportClick -> do
+    H.raise (NavigatePage ImportExportPage)
   LoadState -> do
     competitions <- H.liftEffect getCompetitions
     H.modify_ (\_ -> Overview competitions)

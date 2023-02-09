@@ -13,13 +13,17 @@ module Competition.Competition
   , apparatusName
   , reorder
   , removeCompetition
+  , importCompetition
   )
   where
 
+import Data.Unit (Unit (..), unit)
+import Prelude ((+))
 import Competition.Participant (Participant, Lane (..), genId)
 import Control.Monad.Except (throwError)
 import Data.Array (cons, length, head, find, uncons, snoc, (:), filter)
 import Data.Either (Either (..))
+import Data.Ord (class Ord)
 import Data.Eq (class Eq, (==))
 import Data.Tuple (Tuple (..))
 import Data.List.Types (NonEmptyList (..))
@@ -36,6 +40,8 @@ import Web.HTML (window)
 import Web.HTML.Window (localStorage)
 import Web.Storage.Storage (setItem, getItem)
 import Data.Int (fromString)
+import Data.Foldable (maximum)
+import Data.Functor(map)
 
 newtype CompetitionId = CompetitionId Int
 
@@ -49,6 +55,7 @@ instance readForeignCompetitionId :: JSON.ReadForeign CompetitionId where
       Nothing -> throwError (NonEmptyList $ singleton $ ForeignError ("Invalid int: " <> str))
 
 derive instance eqCompetitionId :: Eq CompetitionId
+derive instance ordCompetitionId :: Ord CompetitionId
 
 instance showCompetitionId :: Show CompetitionId where
   show (CompetitionId x) = show x
@@ -177,6 +184,11 @@ modifyCompetitions f = do
         Right r -> f r
   setItem competitionKey (JSON.writeJSON new) s
   pure new
+
+importCompetition :: Array Competition -> Effect Unit
+importCompetition competitions = do
+  _ <- modifyCompetitions (\_ -> pure competitions)
+  pure unit
 
 getCompetition :: CompetitionId -> Array Competition -> Competition
 getCompetition cId lst = fromMaybe' (\_ -> unsafeCrashWith "Cannot modify non-existing competition") $ find (\c -> c.competitionId == cId) lst
